@@ -1,0 +1,28 @@
+{
+  "template": "https://github.com/MicaelJarniac/crustypy",
+  "commit": "65a9c2e060dd71527883ab57f107859dcb5afb5a",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "full_name": "Micael Jarniac",
+      "email": "micael@jarniac.dev",
+      "github_username": "MicaelJarniac",
+      "year": "2026",
+      "project_name": "mcpgate",
+      "project_slug": "mcpgate",
+      "project_distribution_name": "mcpgate",
+      "project_short_description": "A stateless gateway that turns any OpenAPI spec into MCP tools on the fly.",
+      "version": "0.0.0",
+      "main_branch": "main",
+      "shields_url": "https://img.shields.io",
+      "discord_invite": "Ye9yJtZQuN",
+      "report_method": "micael@jarniac.dev",
+      "__github_path": "MicaelJarniac/mcpgate",
+      "__github_url": "https://github.com/MicaelJarniac/mcpgate",
+      "__readthedocs_name": "mcpgate",
+      "_template": "https://github.com/MicaelJarniac/crustypy",
+      "_commit": "65a9c2e060dd71527883ab57f107859dcb5afb5a"
+    }
+  },
+  "directory": null
+}
