@@ -12,8 +12,10 @@ if TYPE_CHECKING:
     import socket
     from collections.abc import AsyncIterator
 
+import pytest
 import uvicorn
 from fastapi import FastAPI
+from fastapi import Request as FastAPIRequest
 from fastmcp.client import Client
 from fastmcp.client.transports import StreamableHttpTransport
 from fastmcp.utilities.tests import run_server_async
@@ -118,3 +120,94 @@ async def test_no_headers() -> None:
         async with Client(transport=transport) as client:
             tools = await client.list_tools()
             assert len(tools) == 0
+
+
+async def test_call_echo() -> None:
+    """Test calling the echo POST endpoint via MCP."""
+    app = _make_test_app()
+
+    async with (
+        run_fastapi(app) as api_url,
+        run_server_async(create_mcp()) as mcp_url,
+    ):
+        transport = StreamableHttpTransport(
+            url=mcp_url,
+            headers={
+                "x-openapi-url": f"{api_url}/openapi.json",
+                "x-api-url": api_url,
+            },
+        )
+        async with Client(transport=transport) as client:
+            result = await client.call_tool(
+                "echo_echo_post",
+                {"message": "test message"},
+            )
+            assert not result.is_error
+            assert any("test message" in str(c) for c in result.content)
+
+
+async def test_cookie_forwarding() -> None:
+    """Test that x-cookies header is forwarded to the API."""
+    app = FastAPI()
+
+    @app.get("/whoami")
+    async def whoami(request: FastAPIRequest) -> str:
+        """Return the cookie header value."""
+        return request.headers.get("cookie", "no-cookie")
+
+    async with (
+        run_fastapi(app) as api_url,
+        run_server_async(create_mcp()) as mcp_url,
+    ):
+        transport = StreamableHttpTransport(
+            url=mcp_url,
+            headers={
+                "x-openapi-url": f"{api_url}/openapi.json",
+                "x-api-url": api_url,
+                "x-cookies": "session=abc123",
+            },
+        )
+        async with Client(transport=transport) as client:
+            result = await client.call_tool("whoami_whoami_get")
+            assert not result.is_error
+            assert any("session=abc123" in str(c) for c in result.content)
+
+
+async def test_bad_openapi_url() -> None:
+    """Test that an unreachable OpenAPI URL results in an error."""
+    async with run_server_async(create_mcp()) as mcp_url:
+        transport = StreamableHttpTransport(
+            url=mcp_url,
+            headers={
+                "x-openapi-url": "http://127.0.0.1:1/nonexistent",
+                "x-api-url": "http://127.0.0.1:1",
+            },
+        )
+        with pytest.raises(Exception):  # noqa: B017, PT011
+            async with Client(transport=transport) as client:
+                await client.list_tools()
+
+
+async def test_invalid_openapi_spec() -> None:
+    """Test that an invalid OpenAPI spec results in an error."""
+    app = FastAPI()
+
+    @app.get("/bad-spec")
+    async def bad_spec() -> dict[str, str]:
+        """Return an invalid OpenAPI spec."""
+        return {"not": "an openapi spec"}
+
+    async with (
+        run_fastapi(app) as api_url,
+        run_server_async(create_mcp()) as mcp_url,
+    ):
+        transport = StreamableHttpTransport(
+            url=mcp_url,
+            headers={
+                "x-openapi-url": f"{api_url}/bad-spec",
+                "x-api-url": api_url,
+            },
+        )
+        with pytest.raises(Exception):  # noqa: B017, PT011
+            async with Client(transport=transport) as client:
+                await client.list_tools()

@@ -111,8 +111,24 @@ poetry add git+git://github.com/MicaelJarniac/mcpgate
 For more examples, see the [full documentation][docs].
 
 ```python
-from mcpgate import mcpgate
+from mcpgate import mcp
+
+mcp.run(transport="http")
 ```
+
+## Headers
+
+mcpgate is configured per-request via HTTP headers sent by the MCP client:
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `x-openapi-url` | Yes | URL of the OpenAPI JSON specification to load |
+| `x-api-url` | Yes | Base URL of the target API for proxied requests |
+| `x-cookies` | No | Cookie string to forward with API requests |
+
+When both `x-openapi-url` and `x-api-url` are present, mcpgate fetches the
+OpenAPI spec, generates MCP tools from it, and proxies tool calls to the target
+API. When these headers are absent, the server returns no tools.
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

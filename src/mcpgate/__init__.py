@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 __all__: tuple[str, ...] = ("OpenAPIMiddleware", "create_mcp", "mcp")
 
@@ -13,12 +13,16 @@ from fastmcp.server.providers import FastMCPProvider
 from httpx import AsyncClient
 from loguru import logger
 
-if TYPE_CHECKING:
-    from typing import Any
-
 
 class OpenAPIMiddleware(Middleware):
-    """Middleware to extract OpenAPI spec URL and API URL from headers."""
+    """Middleware to extract OpenAPI spec URL and API URL from headers.
+
+    Note: This middleware mutates the shared ``mcp.providers`` list for each
+    request.  Under concurrent requests, one request's dynamically-added
+    provider is briefly visible to other in-flight requests.  This is a known
+    limitation of the current design and would require per-request provider
+    isolation in FastMCP to fix properly.
+    """
 
     def __init__(self, mcp: FastMCP) -> None:
         super().__init__()
@@ -45,17 +49,21 @@ class OpenAPIMiddleware(Middleware):
             headers={"Cookie": cookies} if cookies else {},
         )
 
-        spec = await client.get(openapi_url)
-        spec.raise_for_status()
+        try:
+            spec = await client.get(openapi_url)
+            spec.raise_for_status()
 
-        provider = FastMCPProvider(FastMCP.from_openapi(spec.json(), client=client))
-        self.mcp.add_provider(provider)
+            provider = FastMCPProvider(
+                FastMCP.from_openapi(spec.json(), client=client),
+            )
+            self.mcp.add_provider(provider)
 
-        result = await call_next(context)
-
-        self.mcp.providers.remove(provider)
-
-        return result
+            try:
+                return await call_next(context)
+            finally:
+                self.mcp.providers.remove(provider)
+        finally:
+            await client.aclose()
 
 
 def create_mcp() -> FastMCP:
