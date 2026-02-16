@@ -1,4 +1,6 @@
 addopts
+asyncio
+autorefs
 autosummary
 celerybeat
 Connor
@@ -12,13 +14,17 @@ fastmcp
 furo
 genindex
 htmlcov
+httpx
 ignorelist
 intersphinx
 ipynb
 ipython
+Jarniac
 loguru
 mcpgate
+Micael
 mkdocs
+mkdocstrings
 modindex
 mypy
 nosetests
@@ -56,3 +62,4 @@ virtualenv
 webassets
 wntrblm
 wordlist
+zstd

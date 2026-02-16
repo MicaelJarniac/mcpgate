@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-__all__: tuple[str, ...] = ()
+__all__: tuple[str, ...] = ("OpenAPIMiddleware", "create_mcp", "mcp")
 
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_headers
@@ -15,9 +15,6 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from typing import Any
-
-
-type OpenAPISpec = dict[str, Any]
 
 
 class OpenAPIMiddleware(Middleware):
@@ -61,8 +58,14 @@ class OpenAPIMiddleware(Middleware):
         return result
 
 
-mcp = FastMCP()
-mcp.add_middleware(OpenAPIMiddleware(mcp))
+def create_mcp() -> FastMCP:
+    """Create and return a new FastMCP instance with OpenAPI middleware."""
+    server = FastMCP()
+    server.add_middleware(OpenAPIMiddleware(server))
+    return server
+
+
+mcp = create_mcp()
 
 
 if __name__ == "__main__":
