@@ -20,6 +20,8 @@ classifiers = [
 
 requires-python = ">=3.14"  # py_ver
 dependencies = [
+    "fastmcp>=3.0.0rc1",
+    "httpx[brotli,http2,zstd]>=0.28.1",
     "loguru>=0.7.3",
 ]
 

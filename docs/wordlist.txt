@@ -1,6 +1,3 @@
-mcpgate
-mcpgate
-mcpgate
 addopts
 autosummary
 celerybeat
@@ -11,6 +8,7 @@ dmypy
 docstrings
 epub
 errorlevel
+fastmcp
 furo
 genindex
 htmlcov
@@ -19,6 +17,7 @@ intersphinx
 ipynb
 ipython
 loguru
+mcpgate
 mkdocs
 modindex
 mypy
@@ -48,6 +47,7 @@ SPHINXOPTS
 Spyder
 spyderproject
 spyproject
+streamable
 toctree
 unittests
 venv
