@@ -15,11 +15,16 @@ from httpx import AsyncClient
 from loguru import logger
 from typer import Typer
 
+from mcpgate.log import Level, setup_logging
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     import mcp.types as mt
     from fastmcp.tools.tool import Tool, ToolResult
+
+
+logger.disable("mcpgate")
 
 
 class OpenAPIMiddleware(Middleware):
@@ -110,8 +115,9 @@ app = Typer()
 
 
 @app.command()
-def run(port: int = 8000) -> None:
+def run(port: int = 8000, log_level: Level = Level.INFO) -> None:
     """Run the MCP gateway server."""
+    setup_logging(level=log_level)
     mcp.run(transport="http", port=port)
 
 
