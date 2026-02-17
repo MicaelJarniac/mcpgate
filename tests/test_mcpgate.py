@@ -173,6 +173,54 @@ async def test_cookie_forwarding() -> None:
             assert any("session=abc123" in str(c) for c in result.content)
 
 
+async def test_concurrent_requests_are_isolated() -> None:
+    """Test that concurrent requests each see only their own tools."""
+    app_a = FastAPI()
+
+    @app_a.get("/alpha")
+    async def alpha() -> str:
+        """Return alpha."""
+        return "alpha"
+
+    app_b = FastAPI()
+
+    @app_b.get("/beta")
+    async def beta() -> str:
+        """Return beta."""
+        return "beta"
+
+    async with (
+        run_fastapi(app_a) as url_a,
+        run_fastapi(app_b) as url_b,
+        run_server_async(create_mcp()) as mcp_url,
+    ):
+        transport_a = StreamableHttpTransport(
+            url=mcp_url,
+            headers={"x-openapi-url": f"{url_a}/openapi.json", "x-api-url": url_a},
+        )
+        transport_b = StreamableHttpTransport(
+            url=mcp_url,
+            headers={"x-openapi-url": f"{url_b}/openapi.json", "x-api-url": url_b},
+        )
+
+        async def list_tools_for(transport: StreamableHttpTransport) -> set[str]:
+            async with Client(transport=transport) as client:
+                tools = await client.list_tools()
+                return {t.name for t in tools}
+
+        names_a, names_b = await asyncio.gather(
+            list_tools_for(transport_a),
+            list_tools_for(transport_b),
+        )
+
+        # Each client must see only its own API's tools
+        assert "alpha_alpha_get" in names_a
+        assert "beta_beta_get" not in names_a
+
+        assert "beta_beta_get" in names_b
+        assert "alpha_alpha_get" not in names_b
+
+
 async def test_bad_openapi_url() -> None:
     """Test that an unreachable OpenAPI URL results in an error."""
     async with run_server_async(create_mcp()) as mcp_url:
