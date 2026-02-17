@@ -1,6 +1,55 @@
 # CHANGELOG
 
 
+## v0.2.0 (2026-02-17)
+
+### Features
+
+- Add CLI entrypoint for `uvx mcpgate` / `pipx run mcpgate`
+  ([`923a400`](https://github.com/MicaelJarniac/mcpgate/commit/923a400386397f64a9433d1dfea11897b478e801))
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+### Refactoring
+
+- Concurrency-safe middleware via dispatch hooks + ContextVar
+  ([#1](https://github.com/MicaelJarniac/mcpgate/pull/1),
+  [`e60059d`](https://github.com/MicaelJarniac/mcpgate/commit/e60059d456521c931c4541efc3a21c22b0f57287))
+
+* refactor: use middleware dispatch hooks + ContextVar for concurrency safety
+
+Replace the shared-providers-list mutation pattern with FastMCP's middleware dispatch hooks
+  (on_list_tools, on_call_tool) and a ContextVar to store the per-request OpenAPIProvider.
+
+This eliminates the race condition where concurrent requests could see each other's
+  dynamically-added providers. The new approach:
+
+- __call__: fetches the spec, stores OpenAPIProvider in a ContextVar, then delegates to the dispatch
+  chain - on_list_tools: reads the ContextVar and prepends per-request tools - on_call_tool:
+  intercepts calls to per-request tools directly
+
+No shared state is mutated. Follows the same pattern as FastMCP's own ToolInjectionMiddleware.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+* test: add concurrent request isolation test
+
+Spins up two different FastAPI apps against the same MCP server and uses asyncio.gather to list
+  tools concurrently, asserting each client sees only its own API's tools.
+
+* chore: simplify
+
+* test: verify arbitrary MCP client headers are forwarded to the API
+
+FastMCP's OpenAPITool.run() calls get_http_headers() and merges them into outgoing requests. This
+  test confirms custom headers (x-custom-foo, x-trace-id) sent by the MCP client reach the target
+  API.
+
+---------
+
+Co-authored-by: Claude Opus 4.6 <noreply@anthropic.com>
+
+
 ## v0.1.1 (2026-02-16)
 
 ### Bug Fixes
