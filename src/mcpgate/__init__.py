@@ -31,6 +31,16 @@ if TYPE_CHECKING:
 logger.disable("mcpgate")
 
 
+type URL = str
+type URL_OpenAPI = URL
+type URL_API = URL
+
+type CacheKey = tuple[URL_OpenAPI, URL_API]
+
+type Seconds = float
+type Epoch = Seconds
+
+
 async def _translate_cookies(request: Request) -> None:
     """Translate ``x-cookies`` to ``cookie`` for backwards compatibility.
 
@@ -48,7 +58,7 @@ class _CachedProvider:
 
     provider: OpenAPIProvider
     client: AsyncClient
-    expires_at: float
+    expires_at: Epoch
 
 
 class OpenAPIMiddleware(Middleware):
@@ -71,17 +81,17 @@ class OpenAPIMiddleware(Middleware):
         default=None,
     )
 
-    def __init__(self, *, ttl: float = 300.0) -> None:
+    def __init__(self, *, ttl: Seconds = 300.0) -> None:
         """Initialize the middleware with a provider cache TTL in seconds."""
         self._ttl = ttl
-        self._cache: dict[tuple[str, str], _CachedProvider] = {}
+        self._cache: dict[CacheKey, _CachedProvider] = {}
         self._lock = asyncio.Lock()
         self._spec_client: AsyncClient | None = None
 
     async def _get_provider(
         self,
-        openapi_url: str,
-        api_url: str,
+        openapi_url: URL_OpenAPI,
+        api_url: URL_API,
     ) -> OpenAPIProvider:
         """Return a cached provider or create a new one."""
         key = (openapi_url, api_url)
