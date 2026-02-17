@@ -173,6 +173,38 @@ async def test_cookie_forwarding() -> None:
             assert any("session=abc123" in str(c) for c in result.content)
 
 
+async def test_arbitrary_headers_forwarded() -> None:
+    """Test that arbitrary MCP client headers are forwarded to the API."""
+    app = FastAPI()
+
+    @app.get("/headers")
+    async def headers(request: FastAPIRequest) -> dict[str, str]:
+        """Return selected request headers."""
+        return {
+            "x-custom-foo": request.headers.get("x-custom-foo", ""),
+            "x-trace-id": request.headers.get("x-trace-id", ""),
+        }
+
+    async with (
+        run_fastapi(app) as api_url,
+        run_server_async(create_mcp()) as mcp_url,
+    ):
+        transport = StreamableHttpTransport(
+            url=mcp_url,
+            headers={
+                "x-openapi-url": f"{api_url}/openapi.json",
+                "x-api-url": api_url,
+                "x-custom-foo": "bar",
+                "x-trace-id": "abc-123",
+            },
+        )
+        async with Client(transport=transport) as client:
+            result = await client.call_tool("headers_headers_get")
+            assert not result.is_error
+            assert any("bar" in str(c) for c in result.content)
+            assert any("abc-123" in str(c) for c in result.content)
+
+
 async def test_concurrent_requests_are_isolated() -> None:
     """Test that concurrent requests each see only their own tools."""
     app_a = FastAPI()
