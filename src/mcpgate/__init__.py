@@ -2,33 +2,44 @@
 
 from __future__ import annotations
 
-from typing import Any
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Any
 
 __all__: tuple[str, ...] = ("OpenAPIMiddleware", "create_mcp", "mcp")
 
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_headers
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
-from fastmcp.server.providers import FastMCPProvider
+from fastmcp.server.providers.openapi import OpenAPIProvider
 from httpx import AsyncClient
 from loguru import logger
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    import mcp.types as mt
+    from fastmcp.tools.tool import Tool, ToolResult
+
 
 class OpenAPIMiddleware(Middleware):
-    """Middleware to extract OpenAPI spec URL and API URL from headers.
+    """Middleware that builds per-request MCP tools from an OpenAPI spec.
 
-    Note: This middleware mutates the shared ``mcp.providers`` list for each
-    request.  Under concurrent requests, one request's dynamically-added
-    provider is briefly visible to other in-flight requests.  This is a known
-    limitation of the current design and would require per-request provider
-    isolation in FastMCP to fix properly.
+    Headers extracted from each request:
+        - ``x-openapi-url``: URL of the OpenAPI JSON specification.
+        - ``x-api-url``: Base URL of the target API.
+        - ``x-cookies`` (optional): Cookie string forwarded to the API.
+
+    The middleware uses ``ContextVar`` to isolate the per-request
+    ``OpenAPIProvider``, so concurrent requests never share state.
     """
 
-    def __init__(self, mcp: FastMCP) -> None:
-        super().__init__()
-        self.mcp = mcp
+    _provider: ContextVar[OpenAPIProvider | None] = ContextVar(
+        "_provider",
+        default=None,
+    )
 
     async def __call__(self, context: MiddlewareContext, call_next: CallNext) -> Any:  # noqa: ANN401
+        """Fetch the OpenAPI spec and dispatch to operation-specific hooks."""
         headers = get_http_headers()
         logger.debug(f"Received headers: {headers}")
 
@@ -53,23 +64,43 @@ class OpenAPIMiddleware(Middleware):
             spec = await client.get(openapi_url)
             spec.raise_for_status()
 
-            provider = FastMCPProvider(
-                FastMCP.from_openapi(spec.json(), client=client),
-            )
-            self.mcp.add_provider(provider)
-
+            provider = OpenAPIProvider(spec.json(), client=client)
+            token = self._provider.set(provider)
             try:
-                return await call_next(context)
+                handler = await self._dispatch_handler(context, call_next)
+                return await handler(context)
             finally:
-                self.mcp.providers.remove(provider)
+                self._provider.reset(token)
         finally:
             await client.aclose()
+
+    async def on_list_tools(
+        self,
+        context: MiddlewareContext[mt.ListToolsRequest],
+        call_next: CallNext[mt.ListToolsRequest, Sequence[Tool]],
+    ) -> Sequence[Tool]:
+        """Prepend tools from the per-request OpenAPI provider."""
+        if provider := self._provider.get():
+            return [*await provider.list_tools(), *await call_next(context)]
+        return await call_next(context)
+
+    async def on_call_tool(
+        self,
+        context: MiddlewareContext[mt.CallToolRequestParams],
+        call_next: CallNext[mt.CallToolRequestParams, ToolResult],
+    ) -> ToolResult:
+        """Intercept tool calls destined for the per-request OpenAPI provider."""
+        if provider := self._provider.get():
+            tool = await provider.get_tool(context.message.name)
+            if tool:
+                return await tool.run(arguments=context.message.arguments or {})
+        return await call_next(context)
 
 
 def create_mcp() -> FastMCP:
     """Create and return a new FastMCP instance with OpenAPI middleware."""
     server = FastMCP()
-    server.add_middleware(OpenAPIMiddleware(server))
+    server.add_middleware(OpenAPIMiddleware())
     return server
 
 
