@@ -107,6 +107,17 @@ pip install git+git://github.com/MicaelJarniac/mcpgate
 poetry add git+git://github.com/MicaelJarniac/mcpgate
 ```
 
+## Quick Start
+
+Run the server directly without installing:
+
+```bash
+# With uv
+uvx mcpgate
+# With pipx
+pipx run mcpgate
+```
+
 ## Usage
 For more examples, see the [full documentation][docs].
 

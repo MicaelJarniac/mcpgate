@@ -37,6 +37,9 @@ changelog = "https://github.com/MicaelJarniac/mcpgate/blob/main/docs/CHANGELOG.m
 documentation = "https://mcpgate.readthedocs.io"
 issues = "https://github.com/MicaelJarniac/mcpgate/issues"
 
+[project.scripts]
+mcpgate = "mcpgate:main"
+
 [dependency-groups]
 tests = [
     "coverage>=7.6.11",

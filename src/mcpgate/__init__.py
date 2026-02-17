@@ -107,5 +107,10 @@ def create_mcp() -> FastMCP:
 mcp = create_mcp()
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Run the MCP gateway server."""
     mcp.run(transport="http")
+
+
+if __name__ == "__main__":
+    main()
