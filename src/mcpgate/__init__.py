@@ -80,8 +80,7 @@ class OpenAPIMiddleware(Middleware):
         call_next: CallNext[mt.ListToolsRequest, Sequence[Tool]],
     ) -> Sequence[Tool]:
         """Prepend tools from the per-request OpenAPI provider."""
-        provider = self._provider.get()
-        if provider:
+        if provider := self._provider.get():
             return [*await provider.list_tools(), *await call_next(context)]
         return await call_next(context)
 
@@ -91,8 +90,7 @@ class OpenAPIMiddleware(Middleware):
         call_next: CallNext[mt.CallToolRequestParams, ToolResult],
     ) -> ToolResult:
         """Intercept tool calls destined for the per-request OpenAPI provider."""
-        provider = self._provider.get()
-        if provider:
+        if provider := self._provider.get():
             tool = await provider.get_tool(context.message.name)
             if tool:
                 return await tool.run(arguments=context.message.arguments or {})
