@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.3.0 (2026-02-17)
+
+### Features
+
+- Cli app
+  ([`f66a8a4`](https://github.com/MicaelJarniac/mcpgate/commit/f66a8a4c3df694b97267309bd2ea6bd7ef80a85a))
+
+
 ## v0.2.0 (2026-02-17)
 
 ### Features
