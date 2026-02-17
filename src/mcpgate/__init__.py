@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from contextvars import ContextVar
+from dataclasses import dataclass
+from itertools import chain
 from typing import TYPE_CHECKING, Any
 
 __all__: tuple[str, ...] = ("OpenAPIMiddleware", "create_mcp", "mcp")
@@ -11,7 +15,7 @@ from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_headers
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.server.providers.openapi import OpenAPIProvider
-from httpx import AsyncClient
+from httpx import AsyncClient, Request
 from loguru import logger
 from typer import Typer
 
@@ -27,6 +31,26 @@ if TYPE_CHECKING:
 logger.disable("mcpgate")
 
 
+async def _translate_cookies(request: Request) -> None:
+    """Translate ``x-cookies`` to ``cookie`` for backwards compatibility.
+
+    Registered as an httpx request event hook so the translation happens
+    per-request without baking cookies into the ``AsyncClient``.
+    """
+    if cookies := request.headers.get("x-cookies"):
+        del request.headers["x-cookies"]
+        request.headers["cookie"] = cookies
+
+
+@dataclass(slots=True)
+class _CachedProvider:
+    """A cached ``OpenAPIProvider`` with its associated client and expiry."""
+
+    provider: OpenAPIProvider
+    client: AsyncClient
+    expires_at: float
+
+
 class OpenAPIMiddleware(Middleware):
     """Middleware that builds per-request MCP tools from an OpenAPI spec.
 
@@ -37,12 +61,72 @@ class OpenAPIMiddleware(Middleware):
 
     The middleware uses ``ContextVar`` to isolate the per-request
     ``OpenAPIProvider``, so concurrent requests never share state.
+
+    Providers and their HTTP clients are cached by ``(openapi_url, api_url)``
+    with a configurable TTL to avoid redundant spec fetches and parsing.
     """
 
     _provider: ContextVar[OpenAPIProvider | None] = ContextVar(
         "_provider",
         default=None,
     )
+
+    def __init__(self, *, ttl: float = 300.0) -> None:
+        """Initialize the middleware with a provider cache TTL in seconds."""
+        self._ttl = ttl
+        self._cache: dict[tuple[str, str], _CachedProvider] = {}
+        self._lock = asyncio.Lock()
+        self._spec_client: AsyncClient | None = None
+
+    async def _get_provider(
+        self,
+        openapi_url: str,
+        api_url: str,
+    ) -> OpenAPIProvider:
+        """Return a cached provider or create a new one."""
+        key = (openapi_url, api_url)
+        now = time.monotonic()
+
+        # Fast path: cache hit
+        cached = self._cache.get(key)
+        if cached is not None and cached.expires_at > now:
+            return cached.provider
+
+        # Slow path: acquire lock, double-check, then create
+        async with self._lock:
+            cached = self._cache.get(key)
+            if cached is not None and cached.expires_at > now:
+                return cached.provider
+
+            # Evict expired entry
+            old = self._cache.pop(key, None)
+            if old is not None:
+                await old.client.aclose()
+
+            # Lazy-init the dedicated spec-fetching client
+            if self._spec_client is None:
+                self._spec_client = AsyncClient()
+
+            spec = await self._spec_client.get(openapi_url)
+            spec.raise_for_status()
+
+            client = AsyncClient(
+                base_url=api_url,
+                event_hooks={"request": [_translate_cookies]},
+            )
+
+            try:
+                provider = OpenAPIProvider(spec.json(), client=client)
+            except Exception:
+                await client.aclose()
+                raise
+
+            self._cache[key] = _CachedProvider(
+                provider=provider,
+                client=client,
+                expires_at=now + self._ttl,
+            )
+            return provider
 
     async def __call__(self, context: MiddlewareContext, call_next: CallNext) -> Any:  # noqa: ANN401
         """Fetch the OpenAPI spec and dispatch to operation-specific hooks."""
@@ -58,27 +142,13 @@ class OpenAPIMiddleware(Middleware):
 
         logger.info("OpenAPI URL and API URL found in headers, adding provider.")
 
-        cookies = headers.get("x-cookies")
-        logger.debug(f"Forwarding cookies: {cookies}")
-
-        client = AsyncClient(
-            base_url=api_url,
-            headers={"Cookie": cookies} if cookies else {},
-        )
-
+        provider = await self._get_provider(openapi_url, api_url)
+        token = self._provider.set(provider)
         try:
-            spec = await client.get(openapi_url)
-            spec.raise_for_status()
-
-            provider = OpenAPIProvider(spec.json(), client=client)
-            token = self._provider.set(provider)
-            try:
-                handler = await self._dispatch_handler(context, call_next)
-                return await handler(context)
-            finally:
-                self._provider.reset(token)
+            handler = await self._dispatch_handler(context, call_next)
+            return await handler(context)
         finally:
-            await client.aclose()
+            self._provider.reset(token)
 
     async def on_list_tools(
         self,
@@ -87,7 +157,7 @@ class OpenAPIMiddleware(Middleware):
     ) -> Sequence[Tool]:
         """Prepend tools from the per-request OpenAPI provider."""
         if provider := self._provider.get():
-            return [*await provider.list_tools(), *await call_next(context)]
+            return list(chain(await provider.list_tools(), await call_next(context)))
         return await call_next(context)
 
     async def on_call_tool(
@@ -101,6 +171,15 @@ class OpenAPIMiddleware(Middleware):
             if tool:
                 return await tool.run(arguments=context.message.arguments or {})
         return await call_next(context)
+
+    async def close(self) -> None:
+        """Close all cached clients and the spec-fetching client."""
+        for cached in self._cache.values():
+            await cached.client.aclose()
+        self._cache.clear()
+        if self._spec_client is not None:
+            await self._spec_client.aclose()
+            self._spec_client = None
 
 
 def create_mcp() -> FastMCP:

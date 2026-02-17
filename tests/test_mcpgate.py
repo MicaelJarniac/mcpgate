@@ -16,11 +16,12 @@ import pytest
 import uvicorn
 from fastapi import FastAPI
 from fastapi import Request as FastAPIRequest
+from fastmcp import FastMCP
 from fastmcp.client import Client
 from fastmcp.client.transports import StreamableHttpTransport
 from fastmcp.utilities.tests import run_server_async
 
-from mcpgate import create_mcp
+from mcpgate import OpenAPIMiddleware, create_mcp
 
 
 @asynccontextmanager
@@ -291,3 +292,76 @@ async def test_invalid_openapi_spec() -> None:
         with pytest.raises(Exception):  # noqa: B017, PT011
             async with Client(transport=transport) as client:
                 await client.list_tools()
+
+
+def _create_mcp_with_middleware(
+    **kwargs: float,
+) -> tuple[FastMCP, OpenAPIMiddleware]:
+    """Create a FastMCP instance and return it alongside its middleware."""
+    server = FastMCP()
+    middleware = OpenAPIMiddleware(**kwargs)
+    server.add_middleware(middleware)
+    return server, middleware
+
+
+async def test_provider_is_cached() -> None:
+    """Test that repeated requests reuse the same cached provider."""
+    app = _make_test_app()
+    server, middleware = _create_mcp_with_middleware()
+
+    async with (
+        run_fastapi(app) as api_url,
+        run_server_async(server) as mcp_url,
+    ):
+        headers = {
+            "x-openapi-url": f"{api_url}/openapi.json",
+            "x-api-url": api_url,
+        }
+
+        async with Client(
+            transport=StreamableHttpTransport(url=mcp_url, headers=headers),
+        ) as client:
+            await client.list_tools()
+
+        async with Client(
+            transport=StreamableHttpTransport(url=mcp_url, headers=headers),
+        ) as client:
+            await client.list_tools()
+
+        # Only one provider should be cached for this key
+        assert len(middleware._cache) == 1  # noqa: SLF001
+
+
+async def test_cache_expires() -> None:
+    """Test that cached providers expire after the TTL."""
+    app = _make_test_app()
+    server, middleware = _create_mcp_with_middleware(ttl=0.1)
+
+    async with (
+        run_fastapi(app) as api_url,
+        run_server_async(server) as mcp_url,
+    ):
+        headers = {
+            "x-openapi-url": f"{api_url}/openapi.json",
+            "x-api-url": api_url,
+        }
+
+        async with Client(
+            transport=StreamableHttpTransport(url=mcp_url, headers=headers),
+        ) as client:
+            await client.list_tools()
+
+        # Grab the provider from the first request
+        first_provider = next(iter(middleware._cache.values())).provider  # noqa: SLF001
+
+        # Wait for TTL to expire
+        await asyncio.sleep(0.2)
+
+        async with Client(
+            transport=StreamableHttpTransport(url=mcp_url, headers=headers),
+        ) as client:
+            await client.list_tools()
+
+        # The provider should have been replaced
+        second_provider = next(iter(middleware._cache.values())).provider  # noqa: SLF001
+        assert first_provider is not second_provider
