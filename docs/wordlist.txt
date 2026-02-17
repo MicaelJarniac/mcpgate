@@ -10,6 +10,7 @@ dmypy
 docstrings
 epub
 errorlevel
+fastapi
 fastmcp
 furo
 genindex
@@ -55,7 +56,9 @@ spyderproject
 spyproject
 streamable
 toctree
+typer
 unittests
+uvicorn
 venv
 viewcode
 virtualenv

@@ -13,6 +13,7 @@ from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.server.providers.openapi import OpenAPIProvider
 from httpx import AsyncClient
 from loguru import logger
+from typer import Typer
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -105,12 +106,14 @@ def create_mcp() -> FastMCP:
 
 
 mcp = create_mcp()
+app = Typer()
 
 
-def main() -> None:
+@app.command()
+def run(port: int = 8000) -> None:
     """Run the MCP gateway server."""
-    mcp.run(transport="http")
+    mcp.run(transport="http", port=port)
 
 
 if __name__ == "__main__":
-    main()
+    app()

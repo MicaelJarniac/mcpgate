@@ -20,9 +20,10 @@ classifiers = [
 
 requires-python = ">=3.14"  # py_ver
 dependencies = [
-    "fastmcp>=3.0.0rc1",
+    "fastmcp==3.0.0rc2",
     "httpx[brotli,http2,zstd]>=0.28.1",
     "loguru>=0.7.3",
+    "typer>=0.24.0",
 ]
 
 [build-system]
@@ -38,7 +39,7 @@ documentation = "https://mcpgate.readthedocs.io"
 issues = "https://github.com/MicaelJarniac/mcpgate/issues"
 
 [project.scripts]
-mcpgate = "mcpgate:main"
+mcpgate = "mcpgate:app"
 
 [dependency-groups]
 tests = [
