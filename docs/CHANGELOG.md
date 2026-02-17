@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.3.1 (2026-02-17)
+
+### Bug Fixes
+
+- Better logging
+  ([`1416d96`](https://github.com/MicaelJarniac/mcpgate/commit/1416d96fddf7a78850281704a3c6b4b24ce41a20))
+
+
 ## v0.3.0 (2026-02-17)
 
 ### Features
