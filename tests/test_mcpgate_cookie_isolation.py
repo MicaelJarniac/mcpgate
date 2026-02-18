@@ -24,14 +24,7 @@ from __future__ import annotations
 __all__: tuple[str, ...] = ()
 
 import asyncio
-from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import socket
-    from collections.abc import AsyncIterator
-
-import uvicorn
 from fastapi import FastAPI, Response
 from fastapi import Request as FastAPIRequest
 from fastmcp.client import Client
@@ -40,38 +33,7 @@ from fastmcp.utilities.tests import run_server_async
 
 from mcpgate import create_mcp
 
-# ---------------------------------------------------------------------------
-# Helpers (shared with test_mcpgate.py by convention)
-# ---------------------------------------------------------------------------
-
-
-@asynccontextmanager
-async def _run_fastapi(
-    app: FastAPI,
-    host: str = "127.0.0.1",
-) -> AsyncIterator[str]:
-    """Run a FastAPI app in the background and yield its base URL."""
-    started = asyncio.Event()
-    config = uvicorn.Config(app, host=host, port=0, log_level="error")
-    server = uvicorn.Server(config)
-    _original_startup = server.startup
-
-    async def _notify_startup(
-        sockets: list[socket.socket] | None = None,
-    ) -> None:
-        await _original_startup(sockets=sockets)
-        started.set()
-
-    server.startup = _notify_startup  # type: ignore[assignment]
-    task = asyncio.create_task(server.serve())
-    await started.wait()
-    listeners = server.servers[0].sockets
-    port = listeners[0].getsockname()[1]
-    try:
-        yield f"http://{host}:{port}"
-    finally:
-        server.should_exit = True
-        await task
+from .helpers import run_fastapi
 
 
 def _make_cookie_app() -> FastAPI:
@@ -118,7 +80,7 @@ async def test_two_clients_with_different_cookies_are_isolated() -> None:
     injected independently into its own backend calls.
     """
     async with (
-        _run_fastapi(_make_cookie_app()) as api_url,
+        run_fastapi(_make_cookie_app()) as api_url,
         run_server_async(create_mcp()) as mcp_url,
         Client(transport=_transport(mcp_url, api_url, "session=alice")) as client_a,
         Client(transport=_transport(mcp_url, api_url, "session=bob")) as client_b,
@@ -142,7 +104,7 @@ async def test_two_clients_with_different_cookies_are_isolated() -> None:
 async def test_client_without_cookies_sees_anonymous() -> None:
     """A client that sends no x-cookies header sees the unauthenticated state."""
     async with (
-        _run_fastapi(_make_cookie_app()) as api_url,
+        run_fastapi(_make_cookie_app()) as api_url,
         run_server_async(create_mcp()) as mcp_url,
         Client(transport=_transport(mcp_url, api_url)) as client,
     ):
@@ -171,7 +133,7 @@ async def test_login_set_cookie_not_persisted_to_next_call() -> None:
     """
     # Client sends no x-cookies at all
     async with (
-        _run_fastapi(_make_cookie_app()) as api_url,
+        run_fastapi(_make_cookie_app()) as api_url,
         run_server_async(create_mcp()) as mcp_url,
         Client(transport=_transport(mcp_url, api_url)) as client,
     ):
@@ -202,7 +164,7 @@ async def test_shared_httpx_client_does_not_leak_cookies_between_clients() -> No
     jar, Client B never inherits Client A's session cookie.
     """
     async with (
-        _run_fastapi(_make_cookie_app()) as api_url,
+        run_fastapi(_make_cookie_app()) as api_url,
         run_server_async(create_mcp()) as mcp_url,
         Client(transport=_transport(mcp_url, api_url, "session=alice")) as client_a,
         Client(transport=_transport(mcp_url, api_url)) as client_b,
