@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import socket
 import threading
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    import socket
     from collections.abc import AsyncIterator, Callable, Coroutine
 
 import httpx

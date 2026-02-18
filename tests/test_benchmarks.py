@@ -13,10 +13,13 @@ Run with::
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 
-import pytest
 from fastmcp.client import Client
 from fastmcp.client.transports import StreamableHttpTransport
+
+if TYPE_CHECKING:
+    from pytest_benchmark.fixture import BenchmarkFixture
 
 # Fixtures (live_servers, live_servers_cold, live_servers_vanilla) are
 # provided by tests/conftest.py and injected automatically by pytest.
@@ -50,7 +53,7 @@ async def _call_tool(
 
 
 def test_list_tools_vanilla(
-    benchmark: pytest.FixtureRequest,
+    benchmark: BenchmarkFixture,
     live_servers_vanilla: tuple[str, str],
 ) -> None:
     """Baseline: static FastMCP.from_openapi, no mcpgate middleware."""
@@ -63,7 +66,7 @@ def test_list_tools_vanilla(
 
 
 def test_call_tool_vanilla(
-    benchmark: pytest.FixtureRequest,
+    benchmark: BenchmarkFixture,
     live_servers_vanilla: tuple[str, str],
 ) -> None:
     """Baseline call_tool via static FastMCP.from_openapi."""
@@ -76,7 +79,7 @@ def test_call_tool_vanilla(
 
 
 def test_list_tools_cache_hit(
-    benchmark: pytest.FixtureRequest,
+    benchmark: BenchmarkFixture,
     live_servers: tuple[str, str],
 ) -> None:
     """Warm-cache list_tools: measures mcpgate middleware fast path + network."""
@@ -94,7 +97,7 @@ def test_list_tools_cache_hit(
 
 
 def test_call_tool_cache_hit(
-    benchmark: pytest.FixtureRequest,
+    benchmark: BenchmarkFixture,
     live_servers: tuple[str, str],
 ) -> None:
     """Warm-cache call_tool: measures full proxy round-trip via mcpgate."""
@@ -112,7 +115,7 @@ def test_call_tool_cache_hit(
 
 
 def test_list_tools_cache_miss(
-    benchmark: pytest.FixtureRequest,
+    benchmark: BenchmarkFixture,
     live_servers_cold: tuple[str, str],
 ) -> None:
     """Cold-path list_tools: spec fetch + JSON parse + provider creation per call."""
@@ -129,7 +132,7 @@ def test_list_tools_cache_miss(
 
 
 def test_list_tools_no_headers(
-    benchmark: pytest.FixtureRequest,
+    benchmark: BenchmarkFixture,
     live_servers: tuple[str, str],
 ) -> None:
     """No-headers fast path: middleware skips all OpenAPI logic immediately."""

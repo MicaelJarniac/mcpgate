@@ -25,9 +25,11 @@ class TimeVanillaFastMCP:
     """
 
     def setup(self) -> None:
+        """Start the vanilla FastMCP server."""
         self._servers: Servers = launch_servers(mcp_factory=make_vanilla_server)
 
     def teardown(self) -> None:
+        """Stop the benchmark server."""
         self._servers.stop()
 
     def time_list_tools(self) -> None:
@@ -58,6 +60,7 @@ class TimeCacheHit:
     """
 
     def setup(self) -> None:
+        """Start the mcpgate server and prime the provider cache."""
         fmcp = FastMCP()
         self._middleware = OpenAPIMiddleware()
         fmcp.add_middleware(self._middleware)
@@ -70,6 +73,7 @@ class TimeCacheHit:
         asyncio.run(self._list_tools())
 
     def teardown(self) -> None:
+        """Stop the benchmark server."""
         self._servers.stop()
 
     # -- helpers (prefixed with _ so ASV ignores them) ----------------------
@@ -108,6 +112,7 @@ class TimeCacheMiss:
     """
 
     def setup(self) -> None:
+        """Start the mcpgate server with TTL=0 (no caching)."""
         fmcp = FastMCP()
         fmcp.add_middleware(OpenAPIMiddleware(ttl=0))
         self._servers: Servers = launch_servers(fmcp)
@@ -117,6 +122,7 @@ class TimeCacheMiss:
         }
 
     def teardown(self) -> None:
+        """Stop the benchmark server."""
         self._servers.stop()
 
     def time_list_tools(self) -> None:
@@ -140,9 +146,11 @@ class TimeNoHeaders:
     """
 
     def setup(self) -> None:
+        """Start the default mcpgate server."""
         self._servers: Servers = launch_servers()
 
     def teardown(self) -> None:
+        """Stop the benchmark server."""
         self._servers.stop()
 
     def time_list_tools(self) -> None:
