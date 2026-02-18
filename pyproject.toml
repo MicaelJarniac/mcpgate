@@ -1,6 +1,6 @@
 [project]
 name = "mcpgate"
-version = "0.3.1"
+version = "0.3.2"
 description = "A stateless gateway that turns any OpenAPI spec into MCP tools on the fly."
 authors = [
   {name = "Micael Jarniac", email = "micael@jarniac.dev"},

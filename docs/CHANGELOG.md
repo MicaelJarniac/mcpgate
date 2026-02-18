@@ -1,6 +1,50 @@
 # CHANGELOG
 
 
+## v0.3.2 (2026-02-18)
+
+### Performance Improvements
+
+- Cache providers with TTL and decouple cookies
+  ([#2](https://github.com/MicaelJarniac/mcpgate/pull/2),
+  [`919ff1b`](https://github.com/MicaelJarniac/mcpgate/commit/919ff1b8f0b282cb005400621338a0205d7917b0))
+
+* perf: cache providers with TTL, decouple cookies, use dedicated spec client
+
+Cache OpenAPIProvider instances keyed by (openapi_url, api_url) with a configurable TTL (default 5
+  min), eliminating redundant spec fetches, client creation, and expensive spec parsing on every MCP
+  message.
+
+Decouple cookies from the AsyncClient by translating x-cookies → Cookie via an httpx request event
+  hook, so all users of the same API share a single cached provider regardless of session cookies.
+
+Use a dedicated AsyncClient for spec fetches (separate from API-bound clients) and replace list
+  spreading with itertools.chain in on_list_tools.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+* chore: better typing
+
+* test: document FastMCP and mcpgate cookie isolation behavior
+
+Add two standalone test files that investigate and document how cookies flow (or don't) through
+  FastMCP's OpenAPI proxy and mcpgate:
+
+- test_fastmcp_cookie_isolation.py: shows that client.send() with raw httpx.Request objects stores
+  Set-Cookie in the jar but never injects jar cookies back, meaning FastMCP.from_openapi provides no
+  cookie persistence between tool calls regardless of client sharing.
+
+- test_mcpgate_cookie_isolation.py: shows that mcpgate's x-cookies event-hook approach achieves
+  proper per-client cookie isolation — two clients with different x-cookies headers see independent
+  sessions, and Set-Cookie responses are not automatically persisted.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+---------
+
+Co-authored-by: Claude Opus 4.6 <noreply@anthropic.com>
+
+
 ## v0.3.1 (2026-02-17)
 
 ### Bug Fixes
