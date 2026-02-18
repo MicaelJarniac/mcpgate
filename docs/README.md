@@ -127,6 +127,39 @@ from mcpgate import mcp
 mcp.run(transport="http")
 ```
 
+## Examples
+
+### Nametag
+
+Connect an MCP client to the [Nametag](https://nametag.one) API without any custom server code.
+
+**1. Start the gateway:**
+
+```bash
+uvx --prerelease=allow mcpgate --port 8000
+```
+
+**2. Configure your MCP client** (e.g. Claude Desktop — `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "Nametag": {
+      "baseUrl": "http://localhost:8000/mcp/",
+      "headers": {
+        "X-OpenAPI-URL": "https://app.nametag.one/api/openapi.json",
+        "X-API-URL": "https://app.nametag.one",
+        "X-Cookies": "YOUR_SESSION_COOKIE"
+      }
+    }
+  }
+}
+```
+
+To get `YOUR_SESSION_COOKIE`, open the Nametag web app in your browser, open DevTools → Application → Cookies, and copy the value of the session cookie (e.g. `__Secure-authjs.session-token=<value>`). Pass it as `X-Cookies: __Secure-authjs.session-token=<value>`.
+
+The gateway fetches the OpenAPI spec from `X-OpenAPI-URL` once and caches it, then proxies every MCP tool call to `X-API-URL` with your session cookie attached — no backend changes required.
+
 ## Headers
 
 mcpgate is configured per-request via HTTP headers sent by the MCP client:
