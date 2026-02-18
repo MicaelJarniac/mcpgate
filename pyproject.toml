@@ -54,7 +54,7 @@ tests = [
     "uvicorn>=0.40.0",
 ]
 benchmarking = [
-    "asv>=0.6.4",
+    "asv>=0.6.5",
     "virtualenv>=20.29.1",
 ]
 docs = [

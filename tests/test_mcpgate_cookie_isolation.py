@@ -208,9 +208,7 @@ async def test_shared_httpx_client_does_not_leak_cookies_between_clients() -> No
         Client(transport=_transport(mcp_url, api_url)) as client_b,
     ):
         # Client A logs in - this might write to the shared client's jar
-        login_a = await client_a.call_tool(
-            "login_login_post", {"username": "alice"}
-        )
+        login_a = await client_a.call_tool("login_login_post", {"username": "alice"})
         assert not login_a.is_error
 
         # Client B has no x-cookies - should still see "anonymous"
