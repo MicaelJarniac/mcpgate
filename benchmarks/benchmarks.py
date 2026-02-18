@@ -7,11 +7,9 @@ import asyncio
 from fastmcp import FastMCP
 from fastmcp.client import Client
 from fastmcp.client.transports import StreamableHttpTransport
-
-from mcpgate import OpenAPIMiddleware
-
 from tests.helpers import Servers, launch_servers, make_vanilla_server
 
+from mcpgate import OpenAPIMiddleware
 
 # ---------------------------------------------------------------------------
 # Benchmark suites

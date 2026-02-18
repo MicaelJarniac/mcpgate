@@ -13,10 +13,6 @@ Run with::
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
 
 import pytest
 from fastmcp.client import Client

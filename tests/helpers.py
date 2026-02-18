@@ -132,7 +132,7 @@ def launch_servers(
 
     t = threading.Thread(target=lambda: loop.run_until_complete(_serve()), daemon=True)
     t.start()
-    assert ready.wait(timeout=30), "Servers failed to start within 30 s"  # noqa: S101
+    assert ready.wait(timeout=30), "Servers failed to start within 30 s"
     return Servers(
         api_url=state["api_url"],
         mcp_url=state["mcp_url"],
