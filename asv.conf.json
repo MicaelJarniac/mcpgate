@@ -11,7 +11,8 @@
     "show_commit_url": "https://github.com/MicaelJarniac/mcpgate/commit/",
     "matrix": {
         "req": {
-            "build": []
+            "build": [],
+            "fastapi": []
         }
     },
     "env_dir": ".asv/env",

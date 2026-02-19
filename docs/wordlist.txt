@@ -12,6 +12,7 @@ epub
 errorlevel
 fastapi
 fastmcp
+fmcp
 furo
 genindex
 htmlcov

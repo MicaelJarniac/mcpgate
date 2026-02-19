@@ -1235,11 +1235,11 @@ requires-dist = [
 [package.metadata.requires-dev]
 automation = [{ name = "nox", extras = ["uv"], specifier = ">=2025.2.9" }]
 benchmarking = [
-    { name = "asv", specifier = ">=0.6.4" },
+    { name = "asv", specifier = ">=0.6.5" },
     { name = "virtualenv", specifier = ">=20.29.1" },
 ]
 dev = [
-    { name = "asv", specifier = ">=0.6.4" },
+    { name = "asv", specifier = ">=0.6.5" },
     { name = "coverage", specifier = ">=7.6.11" },
     { name = "fastapi", specifier = ">=0.129.0" },
     { name = "hypothesis", specifier = ">=6.125.3" },

@@ -5,77 +5,23 @@ from __future__ import annotations
 __all__: tuple[str, ...] = ()
 
 import asyncio
-from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import socket
-    from collections.abc import AsyncIterator
 
 import pytest
-import uvicorn
 from fastapi import FastAPI
 from fastapi import Request as FastAPIRequest
-from fastmcp import FastMCP
 from fastmcp.client import Client
 from fastmcp.client.transports import StreamableHttpTransport
 from fastmcp.utilities.tests import run_server_async
 
-from mcpgate import OpenAPIMiddleware, create_mcp
+from mcpgate import create_mcp
 
-
-@asynccontextmanager
-async def run_fastapi(
-    app: FastAPI,
-    host: str = "127.0.0.1",
-) -> AsyncIterator[str]:
-    """Run a FastAPI app in the background and yield the base URL."""
-    started = asyncio.Event()
-    config = uvicorn.Config(app, host=host, port=0, log_level="error")
-    server = uvicorn.Server(config)
-    _original_startup = server.startup
-
-    async def _notify_startup(
-        sockets: list[socket.socket] | None = None,
-    ) -> None:
-        await _original_startup(sockets=sockets)
-        started.set()
-
-    server.startup = _notify_startup  # type: ignore[assignment]
-    task = asyncio.create_task(server.serve())
-    await started.wait()
-    listeners = server.servers[0].sockets
-    port = listeners[0].getsockname()[1]
-    try:
-        yield f"http://{host}:{port}"
-    finally:
-        server.should_exit = True
-        await task
-
-
-def _make_test_app() -> FastAPI:
-    """Create a FastAPI app for testing."""
-    app = FastAPI()
-
-    @app.get("/hello")
-    async def hello() -> str:
-        """Return a greeting."""
-        return "Hello, world!"
-
-    @app.post("/echo")
-    async def echo(message: str) -> str:
-        """Echo the received message."""
-        return message
-
-    return app
+from .helpers import create_mcp_with_middleware, make_test_app, run_fastapi
 
 
 async def test_list_tools() -> None:
     """Test that OpenAPI endpoints are exposed as MCP tools."""
-    app = _make_test_app()
-
     async with (
-        run_fastapi(app) as api_url,
+        run_fastapi(make_test_app()) as api_url,
         run_server_async(create_mcp()) as mcp_url,
     ):
         transport = StreamableHttpTransport(
@@ -88,17 +34,15 @@ async def test_list_tools() -> None:
         async with Client(transport=transport) as client:
             tools = await client.list_tools()
             tool_names = {t.name for t in tools}
-            assert len(tool_names) > 0
+            assert tool_names
             assert "hello_hello_get" in tool_names
             assert "echo_echo_post" in tool_names
 
 
 async def test_call_hello() -> None:
     """Test calling the hello endpoint via MCP."""
-    app = _make_test_app()
-
     async with (
-        run_fastapi(app) as api_url,
+        run_fastapi(make_test_app()) as api_url,
         run_server_async(create_mcp()) as mcp_url,
     ):
         transport = StreamableHttpTransport(
@@ -125,10 +69,8 @@ async def test_no_headers() -> None:
 
 async def test_call_echo() -> None:
     """Test calling the echo POST endpoint via MCP."""
-    app = _make_test_app()
-
     async with (
-        run_fastapi(app) as api_url,
+        run_fastapi(make_test_app()) as api_url,
         run_server_async(create_mcp()) as mcp_url,
     ):
         transport = StreamableHttpTransport(
@@ -246,7 +188,6 @@ async def test_concurrent_requests_are_isolated() -> None:
             list_tools_for(transport_b),
         )
 
-        # Each client must see only its own API's tools
         assert "alpha_alpha_get" in names_a
         assert "beta_beta_get" not in names_a
 
@@ -294,23 +235,12 @@ async def test_invalid_openapi_spec() -> None:
                 await client.list_tools()
 
 
-def _create_mcp_with_middleware(
-    **kwargs: float,
-) -> tuple[FastMCP, OpenAPIMiddleware]:
-    """Create a FastMCP instance and return it alongside its middleware."""
-    server = FastMCP()
-    middleware = OpenAPIMiddleware(**kwargs)
-    server.add_middleware(middleware)
-    return server, middleware
-
-
 async def test_provider_is_cached() -> None:
     """Test that repeated requests reuse the same cached provider."""
-    app = _make_test_app()
-    server, middleware = _create_mcp_with_middleware()
+    server, middleware = create_mcp_with_middleware()
 
     async with (
-        run_fastapi(app) as api_url,
+        run_fastapi(make_test_app()) as api_url,
         run_server_async(server) as mcp_url,
     ):
         headers = {
@@ -328,17 +258,15 @@ async def test_provider_is_cached() -> None:
         ) as client:
             await client.list_tools()
 
-        # Only one provider should be cached for this key
         assert len(middleware._cache) == 1  # noqa: SLF001
 
 
 async def test_cache_expires() -> None:
     """Test that cached providers expire after the TTL."""
-    app = _make_test_app()
-    server, middleware = _create_mcp_with_middleware(ttl=0.1)
+    server, middleware = create_mcp_with_middleware(ttl=0.1)
 
     async with (
-        run_fastapi(app) as api_url,
+        run_fastapi(make_test_app()) as api_url,
         run_server_async(server) as mcp_url,
     ):
         headers = {
@@ -351,10 +279,8 @@ async def test_cache_expires() -> None:
         ) as client:
             await client.list_tools()
 
-        # Grab the provider from the first request
         first_provider = next(iter(middleware._cache.values())).provider  # noqa: SLF001
 
-        # Wait for TTL to expire
         await asyncio.sleep(0.2)
 
         async with Client(
@@ -362,6 +288,5 @@ async def test_cache_expires() -> None:
         ) as client:
             await client.list_tools()
 
-        # The provider should have been replaced
         second_provider = next(iter(middleware._cache.values())).provider  # noqa: SLF001
         assert first_provider is not second_provider
