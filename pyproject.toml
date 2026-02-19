@@ -108,6 +108,7 @@ unfixable = ["ERA001"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
+"benchmarks/*" = ["S101"]
 
 [tool.ruff.lint.flake8-builtins]
 builtins-ignorelist = ["id", "type"]
