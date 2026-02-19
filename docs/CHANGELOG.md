@@ -1,6 +1,21 @@
 # CHANGELOG
 
 
+## v0.4.0 (2026-02-19)
+
+### Documentation
+
+- Add Nametag example with MCP client config
+  ([`ef5972d`](https://github.com/MicaelJarniac/mcpgate/commit/ef5972d618ddfda493a436cc955ddb40a84e0198))
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+### Features
+
+- Release FastMCP
+  ([`a724191`](https://github.com/MicaelJarniac/mcpgate/commit/a724191a1aebe4712c1ad8ef4f70df800a28bf39))
+
+
 ## v0.3.2 (2026-02-18)
 
 ### Performance Improvements
