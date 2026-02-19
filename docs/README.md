@@ -82,49 +82,12 @@ A stateless gateway that turns any OpenAPI spec into MCP tools on the fly.
 
 [Read the Docs][docs]
 
-## Installation
-
-### PyPI
-[*mcpgate*][pypi] is available on PyPI:
-
-```bash
-# With uv
-uv add mcpgate
-# With pip
-pip install mcpgate
-# With Poetry
-poetry add mcpgate
-```
-
-### GitHub
-You can also install the latest version of the code directly from GitHub:
-```bash
-# With uv
-uv add git+https://github.com/MicaelJarniac/mcpgate
-# With pip
-pip install git+git://github.com/MicaelJarniac/mcpgate
-# With Poetry
-poetry add git+git://github.com/MicaelJarniac/mcpgate
-```
-
 ## Quick Start
 
-Run the server directly without installing:
+Run mcpgate directly with `uvx` — no installation needed:
 
 ```bash
-# With uv
 uvx mcpgate
-# With pipx
-pipx run mcpgate
-```
-
-## Usage
-For more examples, see the [full documentation][docs].
-
-```python
-from mcpgate import mcp
-
-mcp.run(transport="http")
 ```
 
 ## Examples
@@ -136,7 +99,7 @@ Connect an MCP client to the [Nametag](https://nametag.one) API without any cust
 **1. Start the gateway:**
 
 ```bash
-uvx --prerelease=allow mcpgate --port 8000
+uvx mcpgate --port 8000
 ```
 
 **2. Configure your MCP client** (e.g. Claude Desktop — `claude_desktop_config.json`):
@@ -173,6 +136,24 @@ mcpgate is configured per-request via HTTP headers sent by the MCP client:
 When both `x-openapi-url` and `x-api-url` are present, mcpgate fetches the
 OpenAPI spec, generates MCP tools from it, and proxies tool calls to the target
 API. When these headers are absent, the server returns no tools.
+
+## Installation
+
+To install mcpgate as a persistent CLI tool:
+
+```bash
+# With uv
+uv tool install mcpgate
+# With pipx
+pipx install mcpgate
+```
+
+Or add it as a dependency:
+
+```bash
+uv add mcpgate
+pip install mcpgate
+```
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
